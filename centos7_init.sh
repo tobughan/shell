@@ -290,8 +290,6 @@ if [ "$1" == "all" ];then
 	disable_ipv6
 	del_useless_service
 	sysctl_config
-	init_nic_name
-	net_config
 	sshd_config
 	yum_config
 	install_docker
