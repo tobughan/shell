@@ -69,6 +69,7 @@ disable_ipv6() {
 }
 #优化服务
 del_useless_service() {
+	yum remove -y postfix
 	yum remove -y firewalld-*
 	yum remove -y NetworkManager-*
 	grep 'After' /etc/systemd/system/multi-user.target.wants/sshd.service|grep -q 'network.service'
