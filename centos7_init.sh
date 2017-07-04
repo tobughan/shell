@@ -9,7 +9,7 @@ usage() {
 Usage: $0 [OPTION]
 OPTION:
 	all                          #执行所有
-	history_format               #修改history记录格式
+	history_log                  #历史命令日志
 	disable_selinux              #禁用selinux
 	del_useless_user             #删除无用账号
 	ulimit_config                #修改ulimit限制
@@ -25,10 +25,13 @@ OPTION:
 	ntpdate_config               #设置时间同步
 EOFI
 }
-#修改history记录格式
-history_format() {
-	LOGIN_IP=$(who am i | awk '{print $NF}')  
-	export PROMPT_COMMAND='{ msg=$(history 1 | { read x y; echo $y; });echo $(date +"%Y-%m-%d %H:%M:%S") [$(whoami)@$SSH_USER$LOGIN_IP `pwd` ]" $msg" >> /var/log/.history; }'
+#历史命令日志
+history_log() {
+	grep -q 'LOGIN_IP' /etc/profile
+	if [ $? -ne 0 ];then
+		echo "export LOGIN_IP=\$(who am i | awk '{print \$NF}')" >>/etc/profile
+		echo "export PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >> /var/log/.history; }'" >>/etc/profile
+	fi
 }
 #禁用selinux
 disable_selinux() {
