@@ -229,8 +229,9 @@ net_config() {
 sshd_config() {
 	sed -i 's/^#Port 22$/Port 33000/' /etc/ssh/sshd_config
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
+	read -p "input a lan ip: " lanip
 	if [ ! -z $lanip ];then
-		sed -i "s/^#ListenAddress 0.0.0.0$/ListenAddress $lanip" /etc/ssh/sshd_config
+		sed -i "s/#ListenAddress 0.0.0.0/ListenAddress $lanip/" /etc/ssh/sshd_config
 	fi
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
