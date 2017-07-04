@@ -20,6 +20,7 @@ OPTION:
 	sshd_config                  #配置SSHD
 	yum_config                   #配置YUM源
 	yum_update                   #安全的自动更新软件包
+	vim_config                   #配置VIM编辑器
 	ntpdate_config               #设置时间同步
 EOFI
 }
@@ -235,6 +236,14 @@ yum_update() {
 	chkconfig yum-cron on
 	service yum-cron restart
 }
+#配置VIM编辑器
+vim_config() {
+	yum install -y vim-en*
+	grep -q 'set tabstop' /et/vimrc
+	if [ $? -ne 0 ];then
+		sed '/set ruler/a\set tabstop=2' /etc/vimrc
+	fi
+}
 #时间同步
 ntpdate_config() {
 	yum install -y ntpdate
@@ -254,9 +263,10 @@ if [ "$1" == "all" ];then
 	disable_ipv6
 	del_useless_service
 	sysctl_config
-	net_config
 	sshd_config
 	yum_config
+	yum_update
+	vim_config
 	ntpdate_config
 else
 	$1
