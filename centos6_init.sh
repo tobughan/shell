@@ -241,7 +241,7 @@ vim_config() {
 	yum install -y vim-en*
 	grep -q 'set tabstop' /et/vimrc
 	if [ $? -ne 0 ];then
-		sed '/set ruler/a\set tabstop=2' /etc/vimrc
+		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
 }
 #时间同步
