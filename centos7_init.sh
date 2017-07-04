@@ -36,12 +36,13 @@ disable_selinux() {
 }
 #删除无用账号
 del_useless_user() {
-	for i in $(awk -F: '{print $1}' /etc/passwd|egrep -v 'root|nobody|sshd|postfix|dbus')
+	for u in lp shutdown halt news uucp operator games gopher
 	do
-		content=$(find / -mount -user $i)
-		if [ "$content" = "" ];then
-			userdel -r $i
-		fi
+		userdel -r $u
+	done
+	for g in lp news uucp games di
+	do
+		groupdel $g
 	done
 }
 #修改ulimit限制
