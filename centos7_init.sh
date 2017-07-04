@@ -21,6 +21,7 @@ OPTION:
 	sshd_config                  #配置SSHD
 	yum_config                   #配置YUM源
 	yum_update                   #安全的自动更新软件包
+	vim_config                   #配置VIM编辑器
 	install_docker               #安装并配置docker
 	ntpdate_config               #设置时间同步
 EOFI
@@ -258,6 +259,14 @@ yum_update() {
 	systemctl enable yum-cron.service
 	systemctl start yum-cron.service
 }
+#配置VIM编辑器
+vim_config() {
+	yum install -y vim-en*
+	grep -q 'set tabstop' /et/vimrc
+	if [ $? -ne 0 ];then
+		sed '/set ruler/a\set tabstop=2' /etc/vimrc
+	fi
+}
 #安装并配置docker-ce
 install_docker() {
 	yum install -y yum-utils device-mapper-persistent-data lvm2
@@ -295,6 +304,7 @@ if [ "$1" == "all" ];then
 	sshd_config
 	yum_config
 	yum_update
+	vim_config
 	install_docker
 	ntpdate_config
 else
