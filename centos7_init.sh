@@ -251,9 +251,9 @@ yum_config() {
 }
 #自动安全的更新
 yum_update() {
-	yum install yum-cron
-	sed 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
-	sed 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
+	yum install -y yum-cron
+	sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
+	sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
 	systemctl enable yum-cron.service
 	systemctl start yum-cron.service
 }
@@ -293,6 +293,7 @@ if [ "$1" == "all" ];then
 	sysctl_config
 	sshd_config
 	yum_config
+	yum_update
 	install_docker
 	ntpdate_config
 else
