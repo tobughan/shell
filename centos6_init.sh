@@ -2,7 +2,7 @@
 # auth:	tobughan
 # date:	2017/07/04
 # version:	v0.1
-# devenv:	CentOS-6-x86_64-Minimal
+# devenv:	CentOS-6。9-x86_64-minimal
 #用法帮助
 usage() {
 	cat <<EOFI
@@ -195,7 +195,7 @@ net_config() {
 	fi
 	read -p "set a dns for this ip: " dns
 	echo "nameserver $dns" >/etc/resolv.conf
-	systemctl restart network.service
+	service network restart
 }
 #修改sshd配置
 sshd_config() {
@@ -223,7 +223,7 @@ yum_config() {
 }
 #自动安全的更新
 yum_update() {
-	yum install yum-cron
+	yum install -y yum-cron
 	sed -i 's/CHECK_ONLY=no/CHECK_ONLY=yes/' /etc/sysconfig/yum-cron
 	sed -i 's/DOWNLOAD_ONLY=no/DOWNLOAD_ONLY=yes/' /etc/sysconfig/yum-cron
 	sed -i 's/MAILTO=/MAILTO=hanhongliang@juntu.com/' /etc/sysconfig/yum-cron
@@ -242,17 +242,16 @@ if [ -z $1 ];then
 	usage
 fi
 if [ "$1" == "all" ];then
+	history_log
 	disable_selinux
 	del_useless_user
 	ulimit_config
 	disable_ipv6
 	del_useless_service
 	sysctl_config
-	init_nic_name
 	net_config
 	sshd_config
 	yum_config
-	install_docker
 	ntpdate_config
 else
 	$1
