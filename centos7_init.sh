@@ -295,6 +295,7 @@ if [ -z $1 ];then
 	usage
 fi
 if [ "$1" == "all" ];then
+	history_log
 	disable_selinux
 	del_useless_user
 	ulimit_config
