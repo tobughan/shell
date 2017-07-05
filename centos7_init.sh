@@ -284,7 +284,6 @@ set from=$mailfrom
 set smtp=smtps://$mailserver:465
 set smtp-auth-user=$mailuser
 set smtp-auth-password=$mailpass
-set smtp-use-starttls
 set smtp-auth=login
 set ssl-verify=ignore
 set nss-config-dir=$certdir
