@@ -21,6 +21,7 @@ OPTION:
 	yum_config                   #配置YUM源
 	yum_update                   #安全的自动更新软件包
 	vim_config                   #配置VIM编辑器
+	mail_config                  #加密的外部企业邮箱
 	ntpdate_config               #设置时间同步
 EOFI
 }
@@ -244,6 +245,39 @@ vim_config() {
 		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
 }
+#加密的外部企业邮箱
+mail_config() {
+	yum install -y mailx
+	if [ ! -f /etc/mail.rc.bak ];then
+		egrep -v '#|^$' /etc/mail.rc >/etc/mail.rc.bak
+	fi
+	mailfrom=
+	mailserver=smtp.exmail.qq.com
+	mailuser=
+	mailpass=
+	certdir=~/.mailxcerts
+	cat >/etc/mail.rc <<EOFI
+set from=$mailfrom
+set smtp=smtps://$mailserver:465
+set smtp-auth-user=$mailuser
+set smtp-auth-password=$mailpass
+set smtp-use-starttls
+set smtp-auth=login
+set ssl-verify=ignore
+set nss-config-dir=$certdir
+EOFI
+	cat /etc/mail.rc.bak >>/etc/mail.rc
+	mkdir -p $certdir
+	certutil -N -d $certdir
+	echo -n |openssl s_client -showcerts -connect $mailserver:465 >$certdir/certs
+	sed -ne '/0 s:/,/1 s:/{/-BEGIN/,/-END/p}' $certdir/certs >$certdir/subjectcert
+	sed -ne '/1 s:/,${/-BEGIN/,/-END/p}' $certdir/certs >$certdir/issuercert
+	subject=$(awk -F= '/subject/ {print $NF}' $certdir/certs)
+	issuer=$(awk -F= '/issuer/ {print $NF}' $certdir/certs)
+	certutil -A -n "$issuer" -t "CT,," -d $certdir -i $certdir/issuercert
+	certutil -A -n "$subject" -t "CT,," -d $certdir -i $certdir/subjectcert
+	rm -f $certdir/certs $certdir/subjectcert $certdir/issuercert
+}
 #时间同步
 ntpdate_config() {
 	yum install -y ntpdate
@@ -267,6 +301,7 @@ if [ "$1" == "all" ];then
 	yum_config
 	yum_update
 	vim_config
+	mail_config
 	ntpdate_config
 else
 	$1
