@@ -8,7 +8,7 @@ usage() {
 	cat <<EOFI
 Usage: $0 [OPTION]
 OPTION:
-	all                          #执行所有
+	all (expcet net_config)      #执行所有
 	history_log                  #历史命令日志
 	disable_selinux              #禁用selinux
 	del_useless_user             #删除无用账号
@@ -22,6 +22,7 @@ OPTION:
 	yum_config                   #配置YUM源
 	yum_update                   #安全的自动更新软件包
 	vim_config                   #配置VIM编辑器
+	mail_config                  #加密的外部企业邮箱
 	install_docker               #安装并配置docker
 	ntpdate_config               #设置时间同步
 EOFI
@@ -267,6 +268,39 @@ vim_config() {
 		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
 }
+#加密的外部企业邮箱
+mail_config() {
+	yum install -y mailx
+	if [ ! -f /etc/mail.rc.bak ];then
+		egrep -v '#|^$' /etc/mail.rc >/etc/mail.rc.bak
+	fi
+	mailfrom=
+	mailserver=smtp.exmail.qq.com
+	mailuser=
+	mailpass=
+	certdir=~/.mailxcerts
+	cat >/etc/mail.rc <<EOFI
+set from=$mailfrom
+set smtp=smtps://$mailserver:465
+set smtp-auth-user=$mailuser
+set smtp-auth-password=$mailpass
+set smtp-use-starttls
+set smtp-auth=login
+set ssl-verify=ignore
+set nss-config-dir=$certdir
+EOFI
+	cat /etc/mail.rc.bak >>/etc/mail.rc
+	mkdir -p $certdir
+	certutil -N -d $certdir
+	echo -n |openssl s_client -showcerts -connect $mailserver:465 >$certdir/certs
+	sed -ne '/0 s:/,/1 s:/{/-BEGIN/,/-END/p}' $certdir/certs >$certdir/subjectcert
+	sed -ne '/1 s:/,${/-BEGIN/,/-END/p}' $certdir/certs >$certdir/issuercert
+	subject=$(awk -F= '/subject/ {print $NF}' $certdir/certs)
+	issuer=$(awk -F= '/issuer/ {print $NF}' $certdir/certs)
+	certutil -A -n "$issuer" -t "CT,," -d $certdir -i $certdir/issuercert
+	certutil -A -n "$subject" -t "CT,," -d $certdir -i $certdir/subjectcert
+	rm -f $certdir/certs $certdir/subjectcert $certdir/issuercert
+}
 #安装并配置docker-ce
 install_docker() {
 	yum install -y yum-utils device-mapper-persistent-data lvm2
@@ -306,6 +340,7 @@ if [ "$1" == "all" ];then
 	yum_config
 	yum_update
 	vim_config
+	mail_config
 	install_docker
 	ntpdate_config
 else
