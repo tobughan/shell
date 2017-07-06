@@ -231,7 +231,7 @@ net_config() {
 sshd_config() {
 	sed -i 's/^#Port 22$/Port 33000/' /etc/ssh/sshd_config
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
-	lanip=$(ifconfig eth1 |awk -F: '/inet addr/ {print $2}'|awk '{print $1}')
+	lanip=$(awk -F= '/IPADDR/ {print $2}' /etc/sysconfig/network-scripts/ifcfg-eth1)
 	sed -i "s/#ListenAddress 0.0.0.0/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
