@@ -61,9 +61,9 @@ EOFI
 }
 #禁用IPv6
 disable_ipv6() {
-	grep 'kernel' /etc/grub.conf |grep -q 'ipv6.disable=1'
+	grep -v '#' /etc/grub.conf|grep 'kernel'|grep -q 'ipv6.disable=1'
 	if [ $? -ne 0 ];then
-		sed -ri '/kernel/s/(.*)/\1 ipv6.disable=1/' /etc/grub.conf
+		sed --follow-symlinks -ri '/kernel/s/(.*)/\1 ipv6.disable=1/' /etc/grub.conf
 	fi
 }
 #优化服务
