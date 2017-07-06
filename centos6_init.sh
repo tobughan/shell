@@ -208,9 +208,8 @@ net_config() {
 sshd_config() {
 	sed -i 's/^#Port 22$/Port 33000/' /etc/ssh/sshd_config
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
-	if [ ! -z $lanip ];then
-		sed -i "s/^#ListenAddress 0.0.0.0$/ListenAddress $lanip" /etc/ssh/sshd_config
-	fi
+	lanip=$(ifconfig eth1 |awk -F: '/inet/ {print $2}'|awk '{print $1}')
+	sed -i "s/^#ListenAddress 0.0.0.0$/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
 	grep -q 'pam_tally2.so' /etc/pam.d/sshd
