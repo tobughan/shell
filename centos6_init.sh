@@ -239,7 +239,7 @@ yum_update() {
 #配置VIM编辑器
 vim_config() {
 	yum install -y vim-en*
-	grep -q 'set tabstop' /et/vimrc
+	grep -q 'set tabstop' /etc/vimrc
 	if [ $? -ne 0 ];then
 		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
