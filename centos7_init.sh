@@ -175,11 +175,17 @@ net_config() {
 	lanfile=/etc/sysconfig/network-scripts/ifcfg-eth1
 	read -p "set an wanip: " wanip
 	if [ ! -z $wanip ];then
-		if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}';then
-			echo "wanip格式不正确，请重新输入！"
-			get_wanip
-		fi
-		get_lanip
+		if echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}';then
+			if [ $(echo $wanip|awk -F. '{print $1}') -ge 255 -o $(echo $wanip|awk -F. '{print $1}') -le 0 ] || [ $(echo $wanip|awk -F. '{print $2}') -ge 255 ] \
+			|| [ $(echo $wanip|awk -F. '{print $3}') -ge 255 ] || [ $(echo $wanip|awk -F. '{print $4}') -ge 255 -o $(echo $wanip|awk -F. '{print $4}') -le 0 ];then
+				echo "wanip格式不正确，请重新输入！"
+				get_wanip
+			fi
+  		else
+      			echo "wanip格式不正确，请重新输入！"
+      			get_wanip
+    		fi
+    		get_lanip
 	else
 		get_lanip
 	fi
