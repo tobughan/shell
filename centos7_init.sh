@@ -145,83 +145,43 @@ init_nic_name() {
 		let nic_num++
 	done
 }
+get_wanip() {
+	wanip=255.255.255.255
+	while [ $(echo $wanip|awk -F. '{print $1}') -ge 255 -o $(echo $wanip|awk -F. '{print $1}') -le 0 ] || [ $(echo $wanip|awk -F. '{print $2}') -ge 255 ] \
+	|| [ $(echo $wanip|awk -F. '{print $3}') -ge 255 ] || [ $(echo $wanip|awk -F. '{print $4}') -ge 255 -o $(echo $wanip|awk -F. '{print $4}') -le 0 ]
+	do
+		read -p "set an wanip: " wanip
+		if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}';then
+			echo "wanip格式不正确，请重新输入！"
+			wanip=255.255.255.255
+		fi
+	done
+}
+get_lanip() {
+	lanip=255.255.255.255
+	while [ $(echo $lanip|awk -F. '{print $1}') -ge 255 -o $(echo $lanip|awk -F. '{print $1}') -le 0 ] || [ $(echo $lanip|awk -F. '{print $2}') -ge 255 ] \
+	|| [ $(echo $lanip|awk -F. '{print $3}') -ge 255 ] || [ $(echo $lanip|awk -F. '{print $4}') -ge 255 -o $(echo $lanip|awk -F. '{print $4}') -le 0 ]
+	do
+		read -p "set an lanip: " lanip
+		if ! echo $lanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}';then
+			echo "lanip格式不正确，请重新输入！"
+			lanip=255.255.255.255
+		fi
+	done
+}
 #设置网络
 net_config() {
 	wanfile=/etc/sysconfig/network-scripts/ifcfg-eth0
 	lanfile=/etc/sysconfig/network-scripts/ifcfg-eth1
 	read -p "set an wanip: " wanip
 	if [ ! -z $wanip ];then
-		read -p "set a netmask for wanip(default 255.255.255.0): " wanip_mask
-		if [ -z $wanip_mask ];then
-			wanip_mask=255.255.255.0
+		if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}';then
+			echo "wanip格式不正确，请重新输入！"
+			get_wanip
 		fi
-		read -p "set a gateway for wanip: " gateway
-		read -p "set an lanip: " lanip
-		read -p "set a netmask for lanip: " lanip_mask
-		if [ -z $wanip_mask ];then
-			lanip_mask=255.255.255.0
-		fi
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $wanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $wanfile
-		grep -q 'IPADDR' $wanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$wanip" >> $wanfile
-		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$wanip/" $wanfile
-		fi
-		grep -q 'NETMASK' $wanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$wanip_mask" >>$wanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$wanip_mask/" $wanfile
-		fi
-		grep -q 'GATEWAY' $wanfile
-		if [ $? -ne 0 ];then
-			echo "GATEWAY=$gateway" >>$wanfile
-		else
-			sed -ri "/GATEWAY/s/(GATEWAY=)(.*)/\1$gateway/" $wanfile
-		fi
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $lanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $lanfile
-		grep -q 'IPADDR' $lanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$lanip" >> $lanfile
-		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
-		fi
-		grep -q 'NETMASK' $lanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$lanip_mask" >>$lanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$lanip_mask/" $lanfile
-		fi
+		get_lanip
 	else
-		read -p "set an lanip: " lanip
-		read -p "set a netmask for lanip: " lanip_mask
-		if [ -z $lanip_mask ];then
-			lanip_mask=255.255.255.0
-		fi
-		read -p "set a gateway for lanip: " gateway
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $lanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $lanfile
-		grep -q 'IPADDR' $lanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$lanip" >> $lanfile
-		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
-		fi
-		grep -q 'NETMASK' $lanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$lanip_mask" >>$lanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$lanip_mask/" $lanfile
-		fi
-		grep -q 'GATEWAY' $lanfile
-		if [ $? -ne 0 ];then
-			echo "GATEWAY=$gateway" >>$lanfile
-		else
-			sed -ri "/GATEWAY/s/(GATEWAY=)(.*)/\1$gateway/" $lanfile
-		fi
+		get_lanip
 	fi
 	read -p "set a dns for this ip: " dns
 	echo "nameserver $dns" >/etc/resolv.conf
