@@ -231,7 +231,7 @@ net_config() {
 sshd_config() {
 	sed -i 's/^#Port 22$/Port 33000/' /etc/ssh/sshd_config
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
-	lanip=$(ifconfig eth1 |awk -F: '/inet/ {print $2}'|awk '{print $1}')
+	lanip=$(ifconfig eth1 |awk -F: '/inet addr/ {print $2}'|awk '{print $1}')
 	sed -i "s/#ListenAddress 0.0.0.0/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
@@ -261,7 +261,7 @@ yum_update() {
 #配置VIM编辑器
 vim_config() {
 	yum install -y vim-en*
-	grep -q 'set tabstop' /et/vimrc
+	grep -q 'set tabstop' /etc/vimrc
 	if [ $? -ne 0 ];then
 		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
