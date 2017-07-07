@@ -11,10 +11,10 @@ OPTION:
 	all                          #执行所有
 	history_log                  #历史命令日志
 	disable_selinux              #禁用selinux
-	del_useless_user             #删除无用账号
+	useless_user                 #删除无用账号
 	ulimit_config                #修改ulimit限制
 	disable_ipv6                 #禁用IPV6
-	del_useless_service          #优化服务
+	useless_service              #优化服务
 	sysctl_config                #优化内核参数
 	net_config                   #配置网络
 	sshd_config                  #配置SSHD
@@ -123,86 +123,162 @@ EOFI
 	sysctl -p
 }
 #设置网络
-net_config() {
+get_wanip() {
+	wanip=255.255.255.255
+	num=1
+	while [ $(echo $wanip|awk -F. '{print $1}') -ge 255 -o $(echo $wanip|awk -F. '{print $1}') -le 0 ] \
+	|| [ $(echo $wanip|awk -F. '{print $2}') -ge 255 ] \
+	|| [ $(echo $wanip|awk -F. '{print $3}') -ge 255 ] \
+	|| [ $(echo $wanip|awk -F. '{print $4}') -ge 255 -o $(echo $wanip|awk -F. '{print $4}') -le 0 ]
+	do
+		if [ $num -gt 1 ];then
+			echo "IP地址格式不正确，请重新输入！"
+		fi
+		read -p "请输入一个公网IP，如何不需要配置公网网络，请直接按回车键进入配置内网网络: " wanip
+		if [ -n "$wanip" ];then
+			if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
+			wanip=255.255.255.255
+			fi
+			let num++
+		else
+			break
+		fi
+	done
+}
+get_wgateway() {
+	wgateway=${wanip%.*}.255
+	num=1
+	while [ $(echo $wgateway|awk -F. '{print $4}') -ge 255 -o $(echo $wgateway|awk -F. '{print $4}') -le 0 ] \
+	|| [ "${wgateway%.*}" != "${wanip%.*}" ] 
+	do
+		if [ $num -gt 1 ];then
+			echo "网关地址格式不正确，请重新输入！"
+		fi
+		read -p "请输入一个网关地址为你的公网IP(默认值为 ${wanip%.*}.1): " wgateway
+		if [ -n "$wgateway" ];then
+			if ! echo $wgateway|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
+				wgateway=${wanip%.*}.255
+			fi
+			let num++
+		else
+			wgateway=${wanip%.*}.1
+			break
+		fi
+	done
+}
+set_wanip() {
 	wanfile=/etc/sysconfig/network-scripts/ifcfg-eth0
-	lanfile=/etc/sysconfig/network-scripts/ifcfg-eth1
-	read -p "set an wanip: " wanip
-	if [ ! -z $wanip ];then
-		read -p "set a netmask for wanip(default 255.255.255.0): " wanip_mask
-		if [ -z $wanip_mask ];then
-			wanip_mask=255.255.255.0
-		fi
-		read -p "set a gateway for wanip: " gateway
-		read -p "set an lanip: " lanip
-		read -p "set a netmask for lanip: " lanip_mask
-		if [ -z $wanip_mask ];then
-			lanip_mask=255.255.255.0
-		fi
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $wanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $wanfile
-		grep -q 'IPADDR' $wanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$wanip" >> $wanfile
-		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$wanip/" $wanfile
-		fi
-		grep -q 'NETMASK' $wanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$wanip_mask" >>$wanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$wanip_mask/" $wanfile
-		fi
-		grep -q 'GATEWAY' $wanfile
-		if [ $? -ne 0 ];then
-			echo "GATEWAY=$gateway" >>$wanfile
-		else
-			sed -ri "/GATEWAY/s/(GATEWAY=)(.*)/\1$gateway/" $wanfile
-		fi
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $lanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $lanfile
-		grep -q 'IPADDR' $lanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$lanip" >> $lanfile
-		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
-		fi
-		grep -q 'NETMASK' $lanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$lanip_mask" >>$lanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$lanip_mask/" $lanfile
-		fi
+	sed -ri '/^BOOTPROTO/s/(BOOTPROTO=)(.*)/\1static/' $wanfile
+	sed -ri '/^ONBOOT/s/(ONBOOT=)(.*)/\1yes/' $wanfile
+	if grep -q '^IPADDR' $wanfile;then
+		sed -ri "/^IPADDR/s/(IPADDR=)(.*)/\1$wanip/" $wanfile
 	else
-		read -p "set an lanip: " lanip
-		read -p "set a netmask for lanip: " lanip_mask
-		if [ -z $lanip_mask ];then
-			lanip_mask=255.255.255.0
+		echo IPADDR=$wanip >>$wanfile
+	fi
+	if grep -q '^NETMASK' $wanfile;then
+		sed -ri "/^NETMASK/s/(NETMASK=)(.*)/\1255.255.255.0/" $wanfile
+	else
+		echo NETMASK=255.255.255.0 >>$wanfile
+	fi
+}
+set_wgateway() {
+	if grep -q '^GATEWAY' $wanfile;then
+		sed -ri "/^GATEWAY/s/(GATEWAY=)(.*)/\1$wgateway/" $wanfile
+	else
+		echo GATEWAY=$wgateway >>$wanfile
+	fi
+}
+get_lanip() {
+	lanip=255.255.255.255
+	num=1
+	while [ $(echo $lanip|awk -F. '{print $1}') -ge 255 -o $(echo $lanip|awk -F. '{print $1}') -le 0 ] \
+	|| [ $(echo $lanip|awk -F. '{print $2}') -ge 255 ] \
+	|| [ $(echo $lanip|awk -F. '{print $3}') -ge 255 ] \
+	|| [ $(echo $lanip|awk -F. '{print $4}') -ge 255 -o $(echo $lanip|awk -F. '{print $4}') -le 0 ]
+	do
+		if [ $num -gt 1 ];then
+			echo "IP地址格式不正确，请重新输入！"
 		fi
-		read -p "set a gateway for lanip: " gateway
-		sed -i 's/BOOTPROTO=hdcp/BOOTPROTO=static/' $lanfile
-		sed -i 's/ONBOOT=no/ONBOOT/' $lanfile
-		grep -q 'IPADDR' $lanfile
-		if [ $? -ne 0 ];then
-			echo "IPADDR=$lanip" >> $lanfile
+		read -p "请输入一个内网IP地址: " lanip
+		if [ -n "$lanip" ];then
+			if ! echo $lanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
+				lanip=255.255.255.255
+			fi
+			let num++
 		else
-			sed -ri "/IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
+			if [ -n "$wanip" ];then
+				break
+			else
+				echo "内网网络不能也不设置"
+				lanip=255.255.255.255
+			fi
 		fi
-		grep -q 'NETMASK' $lanfile
-		if [ $? -ne 0 ];then
-			echo "NETMASK=$lanip_mask" >>$lanfile
-		else
-			sed -ri "/NETMASK/s/(NETMASK=)(.*)/\1$lanip_mask/" $lanfile
+	done
+}
+get_lgateway() {
+	lgateway=${lanip%.*}.255
+	num=1
+	while [ $(echo $lgateway|awk -F. '{print $4}') -ge 255 -o $(echo $lgateway|awk -F. '{print $4}') -le 0 ] \
+	|| [ "${lgateway%.*}" != "${lanip%.*}" ]
+	do
+		if [ $num -gt 1 ];then
+			echo "网关地址格式不正确，请重新输入！"
 		fi
-		grep -q 'GATEWAY' $lanfile
-		if [ $? -ne 0 ];then
-			echo "GATEWAY=$gateway" >>$lanfile
+		read -p "请输入一个网关地址为你的内网IP(default ${lanip%.*}.1): " lgateway
+		if [ -n "$lgateway" ];then
+			if ! echo $lgateway|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
+				lgateway=${lanip%.*}.255
+			fi
+			let num++
 		else
-			sed -ri "/GATEWAY/s/(GATEWAY=)(.*)/\1$gateway/" $lanfile
+			lgateway=${lanip%.*}.1
+			break
+		fi
+	done
+}
+set_lanip() {
+	lanfile=/etc/sysconfig/network-scripts/ifcfg-eth1
+	sed -ri '/^BOOTPROTO/s/(BOOTPROTO=)(.*)/\1static/' $lanfile
+	sed -ri '/^ONBOOT/s/(ONBOOT=)(.*)/\1yes/' $lanfile
+	if grep -q '^IPADDR' $lanfile;then
+		sed -ri "/^IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
+	else
+		echo IPADDR=$lanip >>$lanfile
+	fi
+	if grep -q '^NETMASK' $lanfile;then
+		sed -ri "/^NETMASK/s/(NETMASK=)(.*)/\1255.255.255.0/" $lanfile
+	else
+		echo NETMASK=255.255.255.0 >>$lanfile
+	fi
+}
+set_lgateway() {
+	if grep -q '^GATEWAY' $lanfile;then
+		sed -ri "/^GATEWAY/s/(GATEWAY=)(.*)/\1$lgateway/" $lanfile
+	else
+		echo GATEWAY=$lgateway >>$lanfile
+	fi
+}
+net_config() {
+	echo "--------设置网络开始--------"
+	echo "------开始设置公网网络------"
+  	get_wanip
+	if [ -z "$wanip" ];then
+		echo "------开始设置内网网络------"
+		get_lanip
+		get_lgateway
+		set_lanip
+		set_lgateway
+	else
+		get_wgateway
+		set_wanip
+		set_wgateway
+		echo "------开始设置内网网络------"
+		get_lanip
+		if [ -n "$lanip" ];then
+			set_lanip
 		fi
 	fi
-	read -p "set a dns for this ip: " dns
-	echo "nameserver $dns" >/etc/resolv.conf
-	service network restart
+	echo "--------网络设置完毕--------"
 }
 #修改sshd配置
 sshd_config() {
@@ -290,10 +366,10 @@ fi
 if [ "$1" == "all" ];then
 	history_log
 	disable_selinux
-	del_useless_user
+	useless_user
 	ulimit_config
 	disable_ipv6
-	del_useless_service
+	useless_service
 	sysctl_config
 	sshd_config
 	yum_config
