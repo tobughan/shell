@@ -232,7 +232,7 @@ yum_update() {
 	yum install -y yum-cron
 	sed -i 's/CHECK_ONLY=no/CHECK_ONLY=yes/' /etc/sysconfig/yum-cron
 	sed -i 's/DOWNLOAD_ONLY=no/DOWNLOAD_ONLY=yes/' /etc/sysconfig/yum-cron
-	sed -i 's/MAILTO=/MAILTO=hanhongliang@juntu.com/' /etc/sysconfig/yum-cron
+	sed -i 's/MAILTO=$/MAILTO=hanhongliang@juntu.com/' /etc/sysconfig/yum-cron
 	chkconfig yum-cron on
 	service yum-cron restart
 }
