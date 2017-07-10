@@ -29,15 +29,26 @@ EOFI
 }
 #历史命令日志
 history_log() {
-	grep -q 'LOGIN_IP' /etc/profile
-	if [ $? -ne 0 ];then
+	if grep -q '^export LOGIN_IP' /etc/profile;then
+		sed -ri "/^export LOGIN_IP/s/(.*LOGIN_IP=)(.*)/\1\$(who am i | awk '{print \$NF}')/" /etc/profile
+	else
 		echo "export LOGIN_IP=\$(who am i | awk '{print \$NF}')" >>/etc/profile
-		echo "export PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >> /var/log/.history; }'" >>/etc/profile
+	fi
+	if grep -q '^export PROMPT_COMMAND' /etc/profile;then
+		sed -ri "/^export PROMPT_COMMAND/s#(.*LOGIN_IP=)(.*)#\1'{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >>/var/log/.history; }'#" \
+		/etc/profile
+	else
+		echo "export PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >>/var/log/.history; }'" \
+		>>/etc/profile
 	fi
 }
 #禁用selinux
 disable_selinux() {
-	sed -ri '/^SELINUX=/s/(SELINUX=)(.*)/\1disabled/' /etc/selinux/config
+	if grep -q '^SELINUX' /etc/selinux/config;then
+		sed -ri '/^SELINUX/s/(SELINUX=)(.*)/\1disabled/' /etc/selinux/config
+	else
+		echo "SELINUX=disabled" >>/etc/selinux/config
+	fi
 }
 #删除无用账号
 useless_user() {
@@ -63,9 +74,9 @@ EOFI
 }
 #禁用IPv6
 disable_ipv6() {
-	grep 'GRUB_CMDLINE_LINUX' /etc/default/grub|grep -q 'ipv6.disable=1'
+	grep '^GRUB_CMDLINE_LINUX' /etc/default/grub|grep -q 'ipv6.disable=1'
 	if [ $? -ne 0 ];then
-		sed -ri '/GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1ipv6.disable=1 \2/' /etc/default/grub
+		sed -ri '/^GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1ipv6.disable=1 \2/' /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg
 	fi
 }
@@ -74,9 +85,9 @@ useless_service() {
 	yum remove -y postfix
 	yum remove -y firewalld-*
 	yum remove -y NetworkManager-*
-	grep 'After' /etc/systemd/system/multi-user.target.wants/sshd.service|grep -q 'network.service'
+	grep '^After' /etc/systemd/system/multi-user.target.wants/sshd.service|grep -q 'network.service'
 	if [ $? -ne 0 ];then
-		sed -ri '/After/s/(.*)/\1 network.service/' /etc/systemd/system/multi-user.target.wants/sshd.service
+		sed -ri '/^After/s/(.*)/\1 network.service/' /etc/systemd/system/multi-user.target.wants/sshd.service
 	fi
 }
 #内核参数优化
@@ -126,7 +137,7 @@ EOFI
 #修改网卡名称
 udev_nic() {
 	#修改内核启动参数
-	grep 'GRUB_CMDLINE_LINUX' /etc/default/grub |grep -q 'net.ifnames'
+	grep '^GRUB_CMDLINE_LINUX' /etc/default/grub |grep -q 'net.ifnames'
 	if [ $? -ne 0 ];then
 		sed -ri '/GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1net.ifnames=0 biosdevname=0 \2/' /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg
@@ -310,10 +321,11 @@ sshd_config() {
 	lanip=$(awk -F= '/IPADDR/ {print $2}' /etc/sysconfig/network-scripts/ifcfg-eth1)
 	sed -i "s/#ListenAddress 0.0.0.0/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
-  sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
 	grep -q 'pam_tally2.so' /etc/pam.d/sshd
 	if [ $? -ne 0 ];then
-	sed -i '/pam_sepermit/a\auth       required     pam_tally2.so onerr=fail deny=3 unlock_time=60 even_deny_root root_unlock_time=180' /etc/pam.d/sshd
+		sed -i '/pam_sepermit/a\auth       required     pam_tally2.so onerr=fail deny=3 unlock_time=60 even_deny_root root_unlock_time=180' \
+		/etc/pam.d/sshd
 	fi
 }
 #yum源配置
