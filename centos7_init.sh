@@ -139,7 +139,7 @@ udev_nic() {
 	#修改内核启动参数
 	grep '^GRUB_CMDLINE_LINUX' /etc/default/grub |grep -q 'net.ifnames'
 	if [ $? -ne 0 ];then
-		sed -ri '/GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1net.ifnames=0 biosdevname=0 \2/' /etc/default/grub
+		sed -ri '/^GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1net.ifnames=0 biosdevname=0 \2/' /etc/default/grub
 		grub2-mkconfig -o /boot/grub2/grub.cfg
 	fi
 	#获取需要修改的以太网卡的MAC地址
@@ -171,7 +171,7 @@ get_wanip() {
 		read -p "请输入一个公网IP，如何不需要配置公网网络，请直接按回车键进入配置内网网络: " wanip
 		if [ -n "$wanip" ];then
 			if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-			wanip=255.255.255.255
+				wanip=255.255.255.255
 			fi
 			let num++
 		else
@@ -344,7 +344,7 @@ yum_update() {
 	sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
 	sed -i 's/apply_updates = no/apply_updates = yes/' /etc/yum/yum-cron.conf
 	systemctl enable yum-cron.service
-	systemctl start yum-cron.service
+	systemctl restart yum-cron.service
 }
 #配置VIM编辑器
 vim_config() {
@@ -360,9 +360,9 @@ mail_config() {
 	if [ ! -f /etc/mail.rc.bak ];then
 		egrep -v '#|^$' /etc/mail.rc >/etc/mail.rc.bak
 	fi
-	mailfrom=
+	mailfrom=server@juntu.com
 	mailserver=smtp.exmail.qq.com
-	mailuser=
+	mailuser=server@juntu.com
 	mailpass=
 	certdir=~/.mailxcerts
 	cat >/etc/mail.rc <<EOFI
