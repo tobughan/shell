@@ -27,18 +27,29 @@ EOFI
 }
 #修改history记录格式
 history_log() {
-	grep -q 'LOGIN_IP' /etc/profile
-	if [ $? -ne 0 ];then
+	if grep -q '^export LOGIN_IP' /etc/profile;then
+		sed -ri "/^export LOGIN_IP/s/(.*LOGIN_IP=)(.*)/\1\$(who am i | awk '{print \$NF}')/" /etc/profile
+	else
 		echo "export LOGIN_IP=\$(who am i | awk '{print \$NF}')" >>/etc/profile
-		echo "export PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >> /var/log/.history; }'" >>/etc/profile
+	fi
+	if grep -q '^export PROMPT_COMMAND' /etc/profile;then
+		sed -ri "/^export PROMPT_COMMAND/s#(.*LOGIN_IP=)(.*)#\1'{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >>/var/log/.history; }'#" \
+		/etc/profile
+	else
+		echo "export PROMPT_COMMAND='{ msg=\$(history 1 | { read x y; echo \$y; });echo \$(date +\"%Y-%m-%d %H:%M:%S\") [\$(whoami)@\$SSH_USER\$LOGIN_IP \$(pwd) ]\" \$msg\" >>/var/log/.history; }'" \
+		>>/etc/profile
 	fi
 }
 #禁用selinux
 disable_selinux() {
-	sed -ri '/^SELINUX=/s/(SELINUX=)(.*)/\1disabled/' /etc/selinux/config
+	if grep -q '^SELINUX' /etc/selinux/config;then
+		sed -ri '/^SELINUX/s/(SELINUX=)(.*)/\1disabled/' /etc/selinux/config
+	else
+		echo "SELINUX=disabled" >>/etc/selinux/config
+	fi
 }
 #删除无用账号
-del_useless_user() {
+useless_user() {
 	for u in lp shutdown halt news uucp operator games gopher
 	do
 		userdel -r $u
@@ -67,7 +78,7 @@ disable_ipv6() {
 	fi
 }
 #优化服务
-del_useless_service() {
+useless_service() {
 	for i in $(chkconfig --list|grep "3:on"|awk '{print $1}' | egrep -v "crond|network|sshd|rsyslog|auditd|yum-cron")
 	do
 		chkconfig $i  off;chkconfig --list |grep "3:on"
@@ -287,10 +298,10 @@ sshd_config() {
 	lanip=$(ifconfig eth1 |awk -F: '/inet addr/ {print $2}'|awk '{print $1}')
 	sed -i "s/^#ListenAddress 0.0.0.0$/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
-  sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
 	grep -q 'pam_tally2.so' /etc/pam.d/sshd
 	if [ $? -ne 0 ];then
-	sed -i '/pam_sepermit/a\auth       required     pam_tally2.so onerr=fail deny=3 unlock_time=60 even_deny_root root_unlock_time=180' /etc/pam.d/sshd
+		sed -i '/pam_sepermit/a\auth       required     pam_tally2.so onerr=fail deny=3 unlock_time=60 even_deny_root root_unlock_time=180' /etc/pam.d/sshd
 	fi
 }
 #yum源配置
