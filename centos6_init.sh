@@ -2,7 +2,7 @@
 # auth:	tobughan
 # date:	2017/07/04
 # version:	v0.1
-# devenv:	CentOS-6。9-x86_64-minimal
+# devenv:	CentOS-6.9-x86_64-minimal
 #用法帮助
 usage() {
 	cat <<EOFI
@@ -148,7 +148,7 @@ get_wanip() {
 		read -p "请输入一个公网IP，如何不需要配置公网网络，请直接按回车键进入配置内网网络: " wanip
 		if [ -n "$wanip" ];then
 			if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-			wanip=255.255.255.255
+				wanip=255.255.255.255
 			fi
 			let num++
 		else
@@ -337,9 +337,9 @@ mail_config() {
 	if [ ! -f /etc/mail.rc.bak ];then
 		egrep -v '#|^$' /etc/mail.rc >/etc/mail.rc.bak
 	fi
-	mailfrom=
+	mailfrom=server@juntu.com
 	mailserver=smtp.exmail.qq.com
-	mailuser=
+	mailuser=server@juntu.com
 	mailpass=
 	certdir=~/.mailxcerts
 	cat >/etc/mail.rc <<EOFI
