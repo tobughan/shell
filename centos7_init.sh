@@ -316,10 +316,7 @@ net_config() {
 }
 #修改sshd配置
 sshd_config() {
-	sed -i 's/^#Port 22$/Port 33000/' /etc/ssh/sshd_config
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
-	lanip=$(awk -F= '/IPADDR/ {print $2}' /etc/sysconfig/network-scripts/ifcfg-eth1)
-	sed -i "s/#ListenAddress 0.0.0.0/ListenAddress $lanip/" /etc/ssh/sshd_config
 	sed -i 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/' /etc/ssh/sshd_config
 	sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
 	grep -q 'pam_tally2.so' /etc/pam.d/sshd
