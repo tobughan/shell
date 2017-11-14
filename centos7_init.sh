@@ -327,7 +327,7 @@ sshd_config() {
 }
 #yum源配置
 yum_config() {
-	yum install -y wget epel-release
+	yum install -y wget epel-release ntpdate
 	wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
 	sed -i '/aliyuncs/d' /etc/yum.repos.d/CentOS-Base.repo
 	wget -O /etc/yum.repos.d/epel.repo http://mirrors.aliyun.com/repo/epel-7.repo
@@ -390,6 +390,7 @@ install_docker() {
 	sed -i 's#download.docker.com#mirrors.aliyun.com/docker-ce#' /etc/yum.repos.d/docker-ce.repo
 	yum makecache fast
 	yum -y install docker-ce
+	systemctl enable docker.service
 	systemctl start docker.service
 	cat > /etc/docker/daemon.json <<EOFI
 {
