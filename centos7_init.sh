@@ -16,14 +16,10 @@ OPTION:
 	disable_ipv6                 #禁用IPV6
 	useless_service              #优化服务
 	sysctl_config                #优化内核参数
-	udev_nic                     #修改网卡名称
-	net_config                   #配置网络
 	sshd_config                  #配置SSHD
 	yum_config                   #配置YUM源
 	yum_update                   #安全的自动更新软件包
 	vim_config                   #配置VIM编辑器
-	mail_config                  #加密的外部企业邮箱
-	install_docker               #安装并配置docker
 	ntpdate_config               #设置时间同步
 EOFI
 }
@@ -134,186 +130,6 @@ net.ipv4.conf.all.arp_announce = 2
 EOFI
 	sysctl -p
 }
-#修改网卡名称
-udev_nic() {
-	#修改内核启动参数
-	grep '^GRUB_CMDLINE_LINUX' /etc/default/grub |grep -q 'net.ifnames'
-	if [ $? -ne 0 ];then
-		sed -ri '/^GRUB_CMDLINE_LINUX/s/(.*)(rhgb.*)/\1net.ifnames=0 biosdevname=0 \2/' /etc/default/grub
-		grub2-mkconfig -o /boot/grub2/grub.cfg
-	fi
-	#获取需要修改的以太网卡的MAC地址
-	nic_macs=$(ip addr|grep -B 1 'link/ether'|grep -v -- "--"|sed -n '{N;s/\n/\t/p}'|grep -v docker0|awk '{print $13}'|xargs)
-	#设置udev映射关系
-	nic_num=0
-	for mac in $nic_macs
-	do
-		grep -q "eth$nic_num" /etc/udev/rules.d/70-persistent-ipoib.rules
-		if [ $? -ne 0 ];then
-			echo "SUBSYSTEM==\"net\", ACTION==\"add\", DRIVERS==\"?*\", ATTR{address}==\"$mac\", ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"eth$nic_num\"" \
-			>>/etc/udev/rules.d/70-persistent-ipoib.rules
-		fi
-		let nic_num++
-	done
-}
-#网络设置
-get_wanip() {
-	wanip=255.255.255.255
-	num=1
-	while [ $(echo $wanip|awk -F. '{print $1}') -ge 255 -o $(echo $wanip|awk -F. '{print $1}') -le 0 ] \
-	|| [ $(echo $wanip|awk -F. '{print $2}') -ge 255 ] \
-	|| [ $(echo $wanip|awk -F. '{print $3}') -ge 255 ] \
-	|| [ $(echo $wanip|awk -F. '{print $4}') -ge 255 -o $(echo $wanip|awk -F. '{print $4}') -le 0 ]
-	do
-		if [ $num -gt 1 ];then
-			echo "IP地址格式不正确，请重新输入！"
-		fi
-		read -p "请输入一个公网IP，如何不需要配置公网网络，请直接按回车键进入配置内网网络: " wanip
-		if [ -n "$wanip" ];then
-			if ! echo $wanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-				wanip=255.255.255.255
-			fi
-			let num++
-		else
-			break
-		fi
-	done
-}
-get_wgateway() {
-	wgateway=${wanip%.*}.255
-	num=1
-	while [ $(echo $wgateway|awk -F. '{print $4}') -ge 255 -o $(echo $wgateway|awk -F. '{print $4}') -le 0 ] \
-	|| [ "${wgateway%.*}" != "${wanip%.*}" ] 
-	do
-		if [ $num -gt 1 ];then
-			echo "网关地址格式不正确，请重新输入！"
-		fi
-		read -p "请输入一个网关地址为你的公网IP(默认值为 ${wanip%.*}.1): " wgateway
-		if [ -n "$wgateway" ];then
-			if ! echo $wgateway|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-				wgateway=${wanip%.*}.255
-			fi
-			let num++
-		else
-			wgateway=${wanip%.*}.1
-			break
-		fi
-	done
-}
-set_wanip() {
-	wanfile=/etc/sysconfig/network-scripts/ifcfg-eth0
-	sed -ri '/^BOOTPROTO/s/(BOOTPROTO=)(.*)/\1static/' $wanfile
-	sed -ri '/^ONBOOT/s/(ONBOOT=)(.*)/\1yes/' $wanfile
-	if grep -q '^IPADDR' $wanfile;then
-		sed -ri "/^IPADDR/s/(IPADDR=)(.*)/\1$wanip/" $wanfile
-	else
-		echo IPADDR=$wanip >>$wanfile
-	fi
-	if grep -q '^NETMASK' $wanfile;then
-		sed -ri "/^NETMASK/s/(NETMASK=)(.*)/\1255.255.255.0/" $wanfile
-	else
-		echo NETMASK=255.255.255.0 >>$wanfile
-	fi
-}
-set_wgateway() {
-	if grep -q '^GATEWAY' $wanfile;then
-		sed -ri "/^GATEWAY/s/(GATEWAY=)(.*)/\1$wgateway/" $wanfile
-	else
-		echo GATEWAY=$wgateway >>$wanfile
-	fi
-}
-get_lanip() {
-	lanip=255.255.255.255
-	num=1
-	while [ $(echo $lanip|awk -F. '{print $1}') -ge 255 -o $(echo $lanip|awk -F. '{print $1}') -le 0 ] \
-	|| [ $(echo $lanip|awk -F. '{print $2}') -ge 255 ] \
-	|| [ $(echo $lanip|awk -F. '{print $3}') -ge 255 ] \
-	|| [ $(echo $lanip|awk -F. '{print $4}') -ge 255 -o $(echo $lanip|awk -F. '{print $4}') -le 0 ]
-	do
-		if [ $num -gt 1 ];then
-			echo "IP地址格式不正确，请重新输入！"
-		fi
-		read -p "请输入一个内网IP地址: " lanip
-		if [ -n "$lanip" ];then
-			if ! echo $lanip|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-				lanip=255.255.255.255
-			fi
-			let num++
-		else
-			if [ -n "$wanip" ];then
-				break
-			else
-				echo "内网网络不能也不设置"
-				lanip=255.255.255.255
-			fi
-		fi
-	done
-}
-get_lgateway() {
-	lgateway=${lanip%.*}.255
-	num=1
-	while [ $(echo $lgateway|awk -F. '{print $4}') -ge 255 -o $(echo $lgateway|awk -F. '{print $4}') -le 0 ] \
-	|| [ "${lgateway%.*}" != "${lanip%.*}" ]
-	do
-		if [ $num -gt 1 ];then
-			echo "网关地址格式不正确，请重新输入！"
-		fi
-		read -p "请输入一个网关地址为你的内网IP(default ${lanip%.*}.1): " lgateway
-		if [ -n "$lgateway" ];then
-			if ! echo $lgateway|egrep -q '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$';then
-				lgateway=${lanip%.*}.255
-			fi
-			let num++
-		else
-			lgateway=${lanip%.*}.1
-			break
-		fi
-	done
-}
-set_lanip() {
-	lanfile=/etc/sysconfig/network-scripts/ifcfg-eth1
-	sed -ri '/^BOOTPROTO/s/(BOOTPROTO=)(.*)/\1static/' $lanfile
-	sed -ri '/^ONBOOT/s/(ONBOOT=)(.*)/\1yes/' $lanfile
-	if grep -q '^IPADDR' $lanfile;then
-		sed -ri "/^IPADDR/s/(IPADDR=)(.*)/\1$lanip/" $lanfile
-	else
-		echo IPADDR=$lanip >>$lanfile
-	fi
-	if grep -q '^NETMASK' $lanfile;then
-		sed -ri "/^NETMASK/s/(NETMASK=)(.*)/\1255.255.255.0/" $lanfile
-	else
-		echo NETMASK=255.255.255.0 >>$lanfile
-	fi
-}
-set_lgateway() {
-	if grep -q '^GATEWAY' $lanfile;then
-		sed -ri "/^GATEWAY/s/(GATEWAY=)(.*)/\1$lgateway/" $lanfile
-	else
-		echo GATEWAY=$lgateway >>$lanfile
-	fi
-}
-net_config() {
-	echo "--------设置网络开始--------"
-	echo "------开始设置公网网络------"
-  	get_wanip
-	if [ -z "$wanip" ];then
-		echo "------开始设置内网网络------"
-		get_lanip
-		get_lgateway
-		set_lanip
-		set_lgateway
-	else
-		get_wgateway
-		set_wanip
-		set_wgateway
-		echo "------开始设置内网网络------"
-		get_lanip
-		if [ -n "$lanip" ];then
-			set_lanip
-		fi
-	fi
-	echo "--------网络设置完毕--------"
-}
 #修改sshd配置
 sshd_config() {
 	sed -i 's/^#AddressFamily any$/AddressFamily inet/' /etc/ssh/sshd_config
@@ -351,55 +167,18 @@ vim_config() {
 		sed -i '/set ruler/a\set tabstop=2' /etc/vimrc
 	fi
 }
-#加密的外部企业邮箱
-mail_config() {
-	yum install -y mailx
-	if [ ! -f /etc/mail.rc.bak ];then
-		egrep -v '#|^$' /etc/mail.rc >/etc/mail.rc.bak
-	fi
-	mailfrom=server@juntu.com
-	mailserver=smtp.exmail.qq.com
-	mailuser=server@juntu.com
-	mailpass=
-	certdir=~/.mailxcerts
-	cat >/etc/mail.rc <<EOFI
-set from=$mailfrom
-set smtp=smtps://$mailserver:465
-set smtp-auth-user=$mailuser
-set smtp-auth-password=$mailpass
-set smtp-auth=login
-set ssl-verify=ignore
-set nss-config-dir=$certdir
-EOFI
-	cat /etc/mail.rc.bak >>/etc/mail.rc
-	mkdir -p $certdir
-	certutil -N -d $certdir
-	echo -n |openssl s_client -showcerts -connect $mailserver:465 >$certdir/certs
-	sed -ne '/0 s:/,/1 s:/{/-BEGIN/,/-END/p}' $certdir/certs >$certdir/subjectcert
-	sed -ne '/1 s:/,${/-BEGIN/,/-END/p}' $certdir/certs >$certdir/issuercert
-	subject=$(awk -F= '/subject/ {print $NF}' $certdir/certs)
-	issuer=$(awk -F= '/issuer/ {print $NF}' $certdir/certs)
-	certutil -A -n "$issuer" -t "CT,," -d $certdir -i $certdir/issuercert
-	certutil -A -n "$subject" -t "CT,," -d $certdir -i $certdir/subjectcert
-	rm -f $certdir/certs $certdir/subjectcert $certdir/issuercert
-}
 #安装并配置docker-ce
 install_docker() {
-	yum install -y yum-utils device-mapper-persistent-data lvm2
-	yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-	sed -i 's#download.docker.com#mirrors.aliyun.com/docker-ce#' /etc/yum.repos.d/docker-ce.repo
-	yum makecache fast
-	yum -y install docker-ce
-	systemctl enable docker.service
-	systemctl start docker.service
+	yum install -y docker
 	cat > /etc/docker/daemon.json <<EOFI
 {
   "registry-mirrors": ["https://bm5sgu8k.mirror.aliyuncs.com"],
-  "insecure-registries": ["http://docker.juntu.com"]
+  "hosts": ["tcp://0.0.0.0:5555","unix:///var/run/docker.sock"]
 }
 EOFI
 	systemctl daemon-reload
 	systemctl restart docker.service
+	systemctl enable docker.service
 }
 #时间同步
 ntpdate_config() {
@@ -423,7 +202,6 @@ if [ "$1" == "all" ];then
 	yum_config
 	yum_update
 	vim_config
-	mail_config
 	install_docker
 	ntpdate_config
 else
