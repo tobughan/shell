@@ -173,6 +173,7 @@ install_docker() {
 	cat > /etc/docker/daemon.json <<EOFI
 {
   "registry-mirrors": ["https://bm5sgu8k.mirror.aliyuncs.com"],
+  "insecure-registries": ["docker.zhuoyuan-info.com"],
   "hosts": ["tcp://0.0.0.0:5555","unix:///var/run/docker.sock"]
 }
 EOFI
